@@ -571,11 +571,16 @@ def sort_dataframe(df, sort_col, ascending=True):
     return df
 
 def to_excel(df):
-    """Convierte DataFrame a Excel para descarga"""
+    """Convierte DataFrame a Excel/CSV para descarga"""
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Datos')
-    return output.getvalue()
+    try:
+        # Intentar xlsxwriter primero (más común en Streamlit Cloud)
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Datos')
+        return output.getvalue(), 'xlsx'
+    except:
+        # Fallback a CSV si no hay engine disponible
+        return df.to_csv(index=False).encode('utf-8'), 'csv'
 
 # ============================================
 # GRÁFICOS PLOTLY
@@ -1238,8 +1243,9 @@ def main():
             sort_order = st.selectbox("Orden", ["Descendente", "Ascendente"], key="order_ventas")
         with c4:
             st.markdown("<div style='height:27px;'></div>", unsafe_allow_html=True)
-            excel_data = to_excel(df_ventas)
-            st.download_button("📥 Excel", excel_data, "ventas_yukusavi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            excel_data, ext = to_excel(df_ventas)
+            mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if ext == 'xlsx' else "text/csv"
+            st.download_button(f"📥 {ext.upper()}", excel_data, f"ventas_yukusavi.{ext}", mime, use_container_width=True)
         
         # Aplicar filtros
         df_display = df_ventas.copy()
@@ -1274,8 +1280,9 @@ def main():
             # Export button
             c1, c2 = st.columns([4, 1])
             with c2:
-                excel_inv = to_excel(inventario)
-                st.download_button("📥 Excel", excel_inv, "inventario_yukusavi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                excel_inv, ext = to_excel(inventario)
+                mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if ext == 'xlsx' else "text/csv"
+                st.download_button(f"📥 {ext.upper()}", excel_inv, f"inventario_yukusavi.{ext}", mime, use_container_width=True)
             
             total_stock = int(inventario[stock_col_inv].sum()) if stock_col_inv else 0
             valor_inv = (inventario[stock_col_inv] * inventario[precio_col]).sum() if stock_col_inv and precio_col else 0
@@ -1327,8 +1334,9 @@ def main():
                 sort_gastos = st.selectbox("Ordenar por", ["Fecha", "Monto", "Categoría"], key="sort_gastos")
             with c3:
                 st.markdown("<div style='height:27px;'></div>", unsafe_allow_html=True)
-                excel_gastos = to_excel(gastos)
-                st.download_button("📥 Excel", excel_gastos, "gastos_yukusavi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+                excel_gastos, ext = to_excel(gastos)
+                mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if ext == 'xlsx' else "text/csv"
+                st.download_button(f"📥 {ext.upper()}", excel_gastos, f"gastos_yukusavi.{ext}", mime, use_container_width=True)
             
             # Aplicar filtros
             df_gastos_display = gastos.copy()
