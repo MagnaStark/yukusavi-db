@@ -1,7 +1,10 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 from datetime import datetime, timedelta
+from io import BytesIO
+import base64
 
 # ============================================
 # CONFIGURACIÓN
@@ -37,7 +40,7 @@ C = {
 }
 
 # ============================================
-# CSS POWER BI COMPLETO
+# CSS POWER BI ULTRA
 # ============================================
 st.markdown(f"""
 <style>
@@ -84,10 +87,6 @@ section[data-testid="stSidebar"] > div:first-child {{
 }}
 
 /* Tabs Power BI Style */
-.stTabs {{
-    background: transparent;
-}}
-
 .stTabs [data-baseweb="tab-list"] {{
     gap: 0;
     background: var(--bg2);
@@ -104,6 +103,7 @@ section[data-testid="stSidebar"] > div:first-child {{
     font-weight: 500;
     padding: 10px 20px;
     border-radius: 4px;
+    transition: all 0.2s ease;
 }}
 
 .stTabs [data-baseweb="tab"]:hover {{
@@ -121,19 +121,19 @@ section[data-testid="stSidebar"] > div:first-child {{
     padding-top: 20px;
 }}
 
-/* Selectbox */
-.stSelectbox > div > div {{
+/* Selectbox & Text Input */
+.stSelectbox > div > div, .stTextInput > div > div {{
     background: var(--card2) !important;
     border: 1px solid var(--border) !important;
     border-radius: 4px !important;
     color: var(--text) !important;
 }}
 
-.stSelectbox > div > div:hover {{
+.stSelectbox > div > div:hover, .stTextInput > div > div:focus-within {{
     border-color: var(--accent) !important;
 }}
 
-.stSelectbox label {{
+.stSelectbox label, .stTextInput label {{
     color: var(--text3) !important;
     font-size: 10px !important;
     text-transform: uppercase !important;
@@ -141,7 +141,7 @@ section[data-testid="stSidebar"] > div:first-child {{
     font-weight: 600 !important;
 }}
 
-/* Button */
+/* Buttons */
 .stButton > button {{
     background: var(--accent) !important;
     color: #000 !important;
@@ -151,19 +151,43 @@ section[data-testid="stSidebar"] > div:first-child {{
     font-size: 13px !important;
     padding: 12px 20px !important;
     width: 100% !important;
+    transition: all 0.2s ease !important;
 }}
 
 .stButton > button:hover {{
     background: #00b894 !important;
+    transform: translateY(-1px) !important;
 }}
 
-/* Cards */
+.stDownloadButton > button {{
+    background: var(--card2) !important;
+    color: var(--accent) !important;
+    border: 1px solid var(--accent) !important;
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    padding: 8px 16px !important;
+    transition: all 0.2s ease !important;
+}}
+
+.stDownloadButton > button:hover {{
+    background: var(--accent) !important;
+    color: #000 !important;
+}}
+
+/* Cards with animation */
 .card {{
     background: var(--card);
     border-radius: 4px;
     padding: 20px;
     border: 1px solid var(--border);
     margin-bottom: 12px;
+    transition: all 0.2s ease;
+}}
+
+.card:hover {{
+    border-color: rgba(0,212,170,0.3);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }}
 
 .card-title {{
@@ -175,12 +199,18 @@ section[data-testid="stSidebar"] > div:first-child {{
     letter-spacing: 0.5px;
 }}
 
-/* KPI Cards */
+/* KPI Cards with pulse animation for highlights */
 .kpi-card {{
     background: var(--card);
     border-radius: 4px;
     padding: 18px;
     border: 1px solid var(--border);
+    transition: all 0.2s ease;
+}}
+
+.kpi-card:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }}
 
 .kpi-card.accent {{
@@ -228,13 +258,18 @@ section[data-testid="stSidebar"] > div:first-child {{
     color: var(--red);
 }}
 
+.kpi-delta.neutral {{
+    background: rgba(255,193,7,0.15);
+    color: var(--amber);
+}}
+
 .kpi-sublabel {{
     font-size: 11px;
     color: var(--text3);
     margin-left: 6px;
 }}
 
-/* Data Tables */
+/* Data Tables with sorting indicators */
 .data-table {{
     width: 100%;
     border-collapse: collapse;
@@ -252,6 +287,13 @@ section[data-testid="stSidebar"] > div:first-child {{
     position: sticky;
     top: 0;
     background: var(--card);
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+}}
+
+.data-table th:hover {{
+    color: var(--accent);
 }}
 
 .data-table th.center {{ text-align: center; }}
@@ -267,12 +309,13 @@ section[data-testid="stSidebar"] > div:first-child {{
 .data-table td.center {{ text-align: center; }}
 .data-table td.right {{ text-align: right; }}
 .data-table td.accent {{ color: var(--accent); font-weight: 600; }}
-.data-table td.green {{ color: var(--green); }}
-.data-table td.amber {{ color: var(--amber); }}
-.data-table td.red {{ color: var(--red); }}
+
+.data-table tr {{
+    transition: background 0.15s;
+}}
 
 .data-table tr:hover {{
-    background: rgba(0,212,170,0.05);
+    background: rgba(0,212,170,0.08);
 }}
 
 /* Status Badges */
@@ -285,25 +328,10 @@ section[data-testid="stSidebar"] > div:first-child {{
     font-weight: 600;
 }}
 
-.status-badge.entregado {{
-    background: rgba(0,212,170,0.15);
-    color: var(--green);
-}}
-
-.status-badge.pagado {{
-    background: rgba(77,171,247,0.15);
-    color: var(--blue);
-}}
-
-.status-badge.apartado {{
-    background: rgba(151,117,250,0.15);
-    color: var(--purple);
-}}
-
-.status-badge.cotizado {{
-    background: rgba(255,193,7,0.15);
-    color: var(--amber);
-}}
+.status-badge.entregado {{ background: rgba(0,212,170,0.15); color: var(--green); }}
+.status-badge.pagado {{ background: rgba(77,171,247,0.15); color: var(--blue); }}
+.status-badge.apartado {{ background: rgba(151,117,250,0.15); color: var(--purple); }}
+.status-badge.cotizado {{ background: rgba(255,193,7,0.15); color: var(--amber); }}
 
 /* Funnel */
 .funnel-item {{
@@ -316,6 +344,11 @@ section[data-testid="stSidebar"] > div:first-child {{
     font-weight: 500;
     font-size: 13px;
     margin-bottom: 8px;
+    transition: transform 0.2s;
+}}
+
+.funnel-item:hover {{
+    transform: scale(1.02);
 }}
 
 .funnel-count {{
@@ -327,54 +360,16 @@ section[data-testid="stSidebar"] > div:first-child {{
 }}
 
 /* Inventory */
-.inv-item {{
-    margin-bottom: 16px;
-}}
-
-.inv-header {{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}}
-
-.inv-name {{
-    font-size: 13px;
-    color: var(--text);
-}}
-
-.inv-stock {{
-    font-size: 14px;
-    font-weight: 600;
-}}
-
-.inv-badge {{
-    width: 22px;
-    height: 22px;
-    border-radius: 4px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    margin-left: 8px;
-}}
-
+.inv-item {{ margin-bottom: 16px; }}
+.inv-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }}
+.inv-name {{ font-size: 13px; color: var(--text); }}
+.inv-stock {{ font-size: 14px; font-weight: 600; }}
+.inv-badge {{ width: 22px; height: 22px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-left: 8px; }}
 .inv-badge.ok {{ background: rgba(0,212,170,0.15); color: var(--green); }}
 .inv-badge.warning {{ background: rgba(255,193,7,0.15); color: var(--amber); }}
 .inv-badge.danger {{ background: rgba(255,107,107,0.15); color: var(--red); }}
-
-.progress-bar {{
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-}}
-
-.progress-fill {{
-    height: 100%;
-    border-radius: 3px;
-}}
+.progress-bar {{ height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }}
+.progress-fill {{ height: 100%; border-radius: 3px; transition: width 0.5s ease; }}
 
 /* Inventory Cards Grid */
 .inv-card {{
@@ -383,172 +378,69 @@ section[data-testid="stSidebar"] > div:first-child {{
     padding: 16px;
     border: 1px solid var(--border);
     text-align: center;
+    transition: all 0.2s;
 }}
 
-.inv-card-title {{
-    font-size: 13px;
-    color: var(--text);
-    font-weight: 600;
-    margin-bottom: 8px;
+.inv-card:hover {{
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }}
 
-.inv-card-stock {{
-    font-size: 32px;
-    font-weight: 700;
-    margin-bottom: 8px;
-}}
-
-.inv-card-label {{
-    font-size: 10px;
-    color: var(--text3);
-    text-transform: uppercase;
-}}
+.inv-card-title {{ font-size: 13px; color: var(--text); font-weight: 600; margin-bottom: 8px; }}
+.inv-card-stock {{ font-size: 32px; font-weight: 700; margin-bottom: 8px; }}
+.inv-card-label {{ font-size: 10px; color: var(--text3); text-transform: uppercase; }}
 
 /* Donut Legend */
-.donut-legend {{
-    margin-top: 12px;
-}}
-
-.donut-legend-item {{
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-    font-size: 12px;
-}}
-
-.donut-legend-dot {{
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
-    flex-shrink: 0;
-}}
-
-.donut-legend-name {{
-    flex: 1;
-    color: var(--text2);
-}}
-
-.donut-legend-value {{
-    color: var(--text);
-    font-weight: 600;
-}}
+.donut-legend {{ margin-top: 12px; }}
+.donut-legend-item {{ display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; }}
+.donut-legend-dot {{ width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }}
+.donut-legend-name {{ flex: 1; color: var(--text2); }}
+.donut-legend-value {{ color: var(--text); font-weight: 600; }}
 
 /* Header */
-.main-header {{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 20px;
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--border);
-}}
-
-.main-title {{
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--text);
-    margin: 0;
-}}
-
-.main-subtitle {{
-    font-size: 13px;
-    color: var(--text3);
-    margin-top: 4px;
-}}
+.main-header {{ display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }}
+.main-title {{ font-size: 22px; font-weight: 600; color: var(--text); margin: 0; }}
+.main-subtitle {{ font-size: 13px; color: var(--text3); margin-top: 4px; }}
 
 /* Sidebar */
-.sidebar-logo {{
-    text-align: center;
-    padding: 24px 16px;
-    background: var(--card);
-    border-radius: 4px;
-    margin-bottom: 20px;
-    border: 1px solid rgba(0,212,170,0.25);
-}}
-
+.sidebar-logo {{ text-align: center; padding: 24px 16px; background: var(--card); border-radius: 4px; margin-bottom: 20px; border: 1px solid rgba(0,212,170,0.25); }}
 .sidebar-icon {{ font-size: 36px; margin-bottom: 8px; }}
 .sidebar-title {{ color: var(--accent); font-size: 16px; font-weight: 700; letter-spacing: 3px; }}
 .sidebar-subtitle {{ color: var(--text3); font-size: 9px; letter-spacing: 2px; margin-top: 4px; }}
-
-.sidebar-section {{
-    font-size: 10px;
-    color: var(--text3);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 700;
-    margin: 20px 0 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}}
-
-.sidebar-footer {{
-    text-align: center;
-    padding-top: 20px;
-    margin-top: 24px;
-    border-top: 1px solid var(--border);
-}}
-
-.sidebar-footer-brand {{
-    color: var(--accent);
-    font-weight: 600;
-    font-size: 13px;
-}}
+.sidebar-section {{ font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin: 20px 0 12px; display: flex; align-items: center; gap: 6px; }}
+.sidebar-footer {{ text-align: center; padding-top: 20px; margin-top: 24px; border-top: 1px solid var(--border); }}
+.sidebar-footer-brand {{ color: var(--accent); font-weight: 600; font-size: 13px; }}
 
 /* Footer */
-.main-footer {{
-    text-align: center;
-    padding: 24px;
-    margin-top: 32px;
-    border-top: 1px solid var(--border);
-    color: var(--text3);
-    font-size: 12px;
+.main-footer {{ text-align: center; padding: 24px; margin-top: 32px; border-top: 1px solid var(--border); color: var(--text3); font-size: 12px; }}
+
+/* Table container with search */
+.table-container {{ max-height: 500px; overflow-y: auto; border-radius: 4px; }}
+
+/* Stats row */
+.stats-row {{ display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }}
+.stat-chip {{ background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 12px 20px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }}
+.stat-chip:hover {{ border-color: var(--accent); }}
+.stat-chip-value {{ font-size: 18px; font-weight: 700; color: var(--accent); }}
+.stat-chip-label {{ font-size: 11px; color: var(--text3); text-transform: uppercase; }}
+
+/* Export buttons row */
+.export-row {{ display: flex; gap: 10px; margin-bottom: 16px; }}
+
+/* Search highlight */
+.search-highlight {{ background: rgba(0,212,170,0.3); padding: 2px 4px; border-radius: 2px; }}
+
+[data-testid="column"] {{ padding: 0 6px !important; }}
+.js-plotly-plot .plotly .main-svg {{ background: transparent !important; }}
+
+/* Animations */
+@keyframes fadeIn {{
+    from {{ opacity: 0; transform: translateY(10px); }}
+    to {{ opacity: 1; transform: translateY(0); }}
 }}
 
-/* Scrollable table container */
-.table-container {{
-    max-height: 500px;
-    overflow-y: auto;
-    border-radius: 4px;
-}}
-
-/* Summary stats row */
-.stats-row {{
-    display: flex;
-    gap: 16px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}}
-
-.stat-chip {{
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 12px 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}}
-
-.stat-chip-value {{
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--accent);
-}}
-
-.stat-chip-label {{
-    font-size: 11px;
-    color: var(--text3);
-    text-transform: uppercase;
-}}
-
-[data-testid="column"] {{
-    padding: 0 6px !important;
-}}
-
-.js-plotly-plot .plotly .main-svg {{
-    background: transparent !important;
+.animate-in {{
+    animation: fadeIn 0.3s ease-out;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -630,6 +522,61 @@ def filter_periodo(df, periodo, fecha_col):
         return df
     return df[mask]
 
+def get_previous_period_data(df, fecha_col, periodo):
+    """Obtiene datos del periodo anterior para calcular deltas reales"""
+    if df.empty or not fecha_col: return pd.DataFrame()
+    df = df.copy()
+    df[fecha_col] = pd.to_datetime(df[fecha_col], errors='coerce')
+    today = datetime.now()
+    
+    if periodo == "Este mes":
+        prev_month = today.month - 1 if today.month > 1 else 12
+        prev_year = today.year if today.month > 1 else today.year - 1
+        mask = (df[fecha_col].dt.month == prev_month) & (df[fecha_col].dt.year == prev_year)
+    elif periodo == "Esta semana":
+        start = today - timedelta(days=today.weekday() + 7)
+        end = today - timedelta(days=today.weekday() + 1)
+        mask = (df[fecha_col].dt.date >= start.date()) & (df[fecha_col].dt.date <= end.date())
+    elif periodo == "Trimestre":
+        q = (today.month - 1) // 3
+        prev_q = q - 1 if q > 0 else 3
+        prev_year = today.year if q > 0 else today.year - 1
+        start_m = prev_q * 3 + 1
+        mask = (df[fecha_col].dt.month >= start_m) & (df[fecha_col].dt.month < start_m + 3) & (df[fecha_col].dt.year == prev_year)
+    elif periodo == "Año":
+        mask = df[fecha_col].dt.year == today.year - 1
+    else:
+        return pd.DataFrame()
+    return df[mask]
+
+def calc_delta(current, previous):
+    """Calcula el porcentaje de cambio"""
+    if previous == 0: return 100.0 if current > 0 else 0.0
+    return ((current - previous) / previous) * 100
+
+def search_dataframe(df, query, columns):
+    """Búsqueda en dataframe"""
+    if not query or df.empty: return df
+    query = query.lower()
+    mask = pd.Series([False] * len(df))
+    for col in columns:
+        if col in df.columns:
+            mask |= df[col].astype(str).str.lower().str.contains(query, na=False)
+    return df[mask]
+
+def sort_dataframe(df, sort_col, ascending=True):
+    """Ordena dataframe por columna"""
+    if sort_col and sort_col in df.columns:
+        return df.sort_values(by=sort_col, ascending=ascending)
+    return df
+
+def to_excel(df):
+    """Convierte DataFrame a Excel para descarga"""
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Datos')
+    return output.getvalue()
+
 # ============================================
 # GRÁFICOS PLOTLY
 # ============================================
@@ -645,6 +592,8 @@ def chart_bars_meta(df, fecha_col, total_col, meta):
     
     if monthly.empty: return None
     
+    colors = [C['accent'] if v >= meta else C['amber'] if v >= meta*0.7 else C['red'] for v in monthly['_total']]
+    
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=monthly['mes_label'], y=[meta]*len(monthly),
@@ -655,7 +604,7 @@ def chart_bars_meta(df, fecha_col, total_col, meta):
     fig.add_trace(go.Bar(
         x=monthly['mes_label'], y=monthly['_total'],
         name='Ventas',
-        marker=dict(color=C['accent']),
+        marker=dict(color=colors),
         hovertemplate='<b>%{x}</b><br>$%{y:,.0f}<extra></extra>'
     ))
     
@@ -741,6 +690,109 @@ def chart_sparkline(values):
     )
     return fig
 
+def chart_treemap(df, prod_col, value_col):
+    """Treemap de productos"""
+    if df.empty or not prod_col or not value_col: return None
+    
+    data = df.groupby(prod_col)[value_col].sum().reset_index()
+    data.columns = ['Producto', 'Valor']
+    
+    fig = px.treemap(
+        data, path=['Producto'], values='Valor',
+        color='Valor',
+        color_continuous_scale=[[0, C['card2']], [0.5, C['blue']], [1, C['accent']]]
+    )
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color=C['text'], family='Inter', size=12),
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=250,
+        coloraxis_showscale=False
+    )
+    fig.update_traces(
+        textfont=dict(size=14, color='white'),
+        hovertemplate='<b>%{label}</b><br>$%{value:,.0f}<extra></extra>'
+    )
+    return fig
+
+def chart_heatmap(df, fecha_col, total_col):
+    """Heatmap de ventas por día de semana y hora/semana"""
+    if df.empty or not fecha_col or not total_col: return None
+    
+    df_temp = df.copy()
+    df_temp['_fecha'] = pd.to_datetime(df_temp[fecha_col], errors='coerce')
+    df_temp['_total'] = pd.to_numeric(df_temp[total_col], errors='coerce').fillna(0)
+    df_temp['dia_semana'] = df_temp['_fecha'].dt.dayofweek
+    df_temp['semana'] = df_temp['_fecha'].dt.isocalendar().week
+    
+    pivot = df_temp.groupby(['dia_semana', 'semana'])['_total'].sum().reset_index()
+    pivot_table = pivot.pivot(index='dia_semana', columns='semana', values='_total').fillna(0)
+    
+    dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    
+    fig = go.Figure(go.Heatmap(
+        z=pivot_table.values,
+        x=[f'S{int(c)}' for c in pivot_table.columns],
+        y=[dias[i] for i in pivot_table.index],
+        colorscale=[[0, C['bg2']], [0.5, C['blue']], [1, C['accent']]],
+        hovertemplate='%{y}, Semana %{x}<br>$%{z:,.0f}<extra></extra>',
+        showscale=False
+    ))
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color=C['text3'], family='Inter', size=11),
+        margin=dict(l=50, r=10, t=10, b=30),
+        height=200,
+        xaxis=dict(tickfont=dict(size=9)),
+        yaxis=dict(tickfont=dict(size=10))
+    )
+    return fig
+
+def chart_area_tendencia(df, fecha_col, total_col):
+    """Área apilada de tendencia de ventas"""
+    if df.empty or not fecha_col or not total_col: return None
+    
+    df_temp = df.copy()
+    df_temp['_fecha'] = pd.to_datetime(df_temp[fecha_col], errors='coerce')
+    df_temp['_total'] = pd.to_numeric(df_temp[total_col], errors='coerce').fillna(0)
+    
+    daily = df_temp.groupby(df_temp['_fecha'].dt.date).agg({'_total': 'sum'}).reset_index()
+    daily.columns = ['fecha', 'ventas']
+    daily['acumulado'] = daily['ventas'].cumsum()
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=daily['fecha'], y=daily['acumulado'],
+        fill='tozeroy',
+        mode='lines',
+        line=dict(color=C['accent'], width=2),
+        fillcolor='rgba(0,212,170,0.2)',
+        name='Acumulado',
+        hovertemplate='%{x}<br>Acumulado: $%{y:,.0f}<extra></extra>'
+    ))
+    fig.add_trace(go.Bar(
+        x=daily['fecha'], y=daily['ventas'],
+        marker=dict(color=C['blue'], opacity=0.6),
+        name='Diario',
+        hovertemplate='%{x}<br>Diario: $%{y:,.0f}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color=C['text3'], family='Inter', size=11),
+        margin=dict(l=50, r=20, t=10, b=40),
+        height=200,
+        showlegend=True,
+        legend=dict(orientation='h', yanchor='bottom', y=1, xanchor='right', x=1, font=dict(size=10)),
+        yaxis=dict(tickformat='$,.0f', gridcolor=C['border'], gridwidth=0.5, zeroline=False),
+        xaxis=dict(gridcolor='rgba(0,0,0,0)'),
+        hovermode='x unified',
+        barmode='overlay'
+    )
+    return fig
+
 def chart_gastos_categoria(df, cat_col, monto_col):
     if df.empty or not cat_col or not monto_col: return None
     
@@ -769,7 +821,7 @@ def chart_gastos_categoria(df, cat_col, monto_col):
 # ============================================
 # COMPONENTES HTML
 # ============================================
-def html_kpi(label, value, prefix="$", suffix="", delta=None, delta_label="vs mes ant.", accent=False, large=False):
+def html_kpi(label, value, prefix="$", suffix="", delta=None, delta_label="vs periodo ant.", accent=False, large=False):
     if prefix == "$":
         fmt_val = f"${value:,.0f}"
     elif suffix == "%":
@@ -782,26 +834,37 @@ def html_kpi(label, value, prefix="$", suffix="", delta=None, delta_label="vs me
     
     delta_html = ""
     if delta is not None:
-        d_cls = "up" if delta >= 0 else "down"
-        arrow = "▲" if delta >= 0 else "▼"
+        if delta > 0:
+            d_cls, arrow = "up", "▲"
+        elif delta < 0:
+            d_cls, arrow = "down", "▼"
+        else:
+            d_cls, arrow = "neutral", "●"
         delta_html = f'<div class="kpi-delta {d_cls}">{arrow} {abs(delta):.1f}%<span class="kpi-sublabel">{delta_label}</span></div>'
     
     return f'<div class="{card_cls}"><div class="kpi-label">{label}</div><div class="{val_cls}">{fmt_val}</div>{delta_html}</div>'
 
-def html_table_ventas(df, fecha_col, total_col, cant_col, status_col):
+def html_table_ventas(df, fecha_col, total_col, cant_col, status_col, search_query=""):
     if df.empty: return '<p style="color: var(--text3);">Sin datos</p>'
     
     rows = ""
     for _, row in df.iterrows():
-        folio = row.get('Folio', '-')
+        folio = str(row.get('Folio', '-'))
         fecha = pd.to_datetime(row.get(fecha_col), errors='coerce')
         fecha_str = fecha.strftime('%d/%m/%Y') if pd.notna(fecha) else '-'
-        cliente = row.get('Cliente', '-')
-        producto = row.get('Producto', '-')
+        cliente = str(row.get('Cliente', '-'))
+        producto = str(row.get('Producto', '-'))
         cant = int(row.get(cant_col, 0)) if cant_col else 0
         total = row.get(total_col, 0) if total_col else 0
-        canal = row.get('Canal', '-')
+        canal = str(row.get('Canal', '-'))
         status = row.get(status_col, '-') if status_col else '-'
+        
+        # Highlight search matches
+        if search_query:
+            sq = search_query.lower()
+            if sq in folio.lower(): folio = folio.replace(folio, f'<span class="search-highlight">{folio}</span>')
+            if sq in cliente.lower(): cliente = f'<span class="search-highlight">{cliente}</span>'
+            if sq in producto.lower(): producto = f'<span class="search-highlight">{producto}</span>'
         
         status_cls = status.lower().replace(' ', '') if isinstance(status, str) else ''
         
@@ -820,12 +883,12 @@ def html_table_ventas(df, fecha_col, total_col, cant_col, status_col):
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Folio</th>
-                    <th>Fecha</th>
-                    <th>Cliente</th>
-                    <th>Producto</th>
+                    <th>Folio ↕</th>
+                    <th>Fecha ↕</th>
+                    <th>Cliente ↕</th>
+                    <th>Producto ↕</th>
                     <th class="center">Cant.</th>
-                    <th class="right">Total</th>
+                    <th class="right">Total ↕</th>
                     <th class="center">Canal</th>
                     <th class="center">Status</th>
                 </tr>
@@ -917,17 +980,23 @@ def html_legend(items, colors_list):
     html += '</div>'
     return html
 
-def html_table_gastos(df, fecha_col, cat_col, monto_col):
+def html_table_gastos(df, fecha_col, cat_col, monto_col, search_query=""):
     if df.empty: return '<p style="color: var(--text3);">Sin datos</p>'
     
     rows = ""
     for _, row in df.iterrows():
         fecha = pd.to_datetime(row.get(fecha_col), errors='coerce')
         fecha_str = fecha.strftime('%d/%m/%Y') if pd.notna(fecha) else '-'
-        categoria = row.get(cat_col, '-')
-        concepto = row.get('Concepto', row.get('Descripción', '-'))
+        categoria = str(row.get(cat_col, '-'))
+        concepto = str(row.get('Concepto', row.get('Descripción', '-')))
         monto = row.get(monto_col, 0)
-        proveedor = row.get('Proveedor', '-')
+        proveedor = str(row.get('Proveedor', '-'))
+        
+        if search_query:
+            sq = search_query.lower()
+            if sq in categoria.lower(): categoria = f'<span class="search-highlight">{categoria}</span>'
+            if sq in concepto.lower(): concepto = f'<span class="search-highlight">{concepto}</span>'
+            if sq in proveedor.lower(): proveedor = f'<span class="search-highlight">{proveedor}</span>'
         
         rows += f'''<tr>
             <td>{fecha_str}</td>
@@ -941,10 +1010,10 @@ def html_table_gastos(df, fecha_col, cat_col, monto_col):
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Fecha</th>
-                    <th>Categoría</th>
+                    <th>Fecha ↕</th>
+                    <th>Categoría ↕</th>
                     <th>Concepto</th>
-                    <th class="right">Monto</th>
+                    <th class="right">Monto ↕</th>
                     <th>Proveedor</th>
                 </tr>
             </thead>
@@ -987,7 +1056,7 @@ def main():
         productos = ["Todos"] + sorted(ventas['Producto'].dropna().unique().tolist()) if 'Producto' in ventas.columns else ["Todos"]
         producto = st.selectbox("Producto", productos)
         
-        # Filtrar
+        # Filtrar periodo actual
         df = ventas.copy()
         fecha_col = find_col(df, ['Fecha'])
         df = filter_periodo(df, periodo, fecha_col)
@@ -995,15 +1064,24 @@ def main():
         if vendedor != "Todos" and 'Vendedor' in df.columns: df = df[df['Vendedor'] == vendedor]
         if producto != "Todos" and 'Producto' in df.columns: df = df[df['Producto'] == producto]
         
+        # Filtrar periodo anterior para deltas
+        df_prev = ventas.copy()
+        df_prev = get_previous_period_data(df_prev, fecha_col, periodo)
+        if canal != "Todos" and 'Canal' in df_prev.columns: df_prev = df_prev[df_prev['Canal'] == canal]
+        if vendedor != "Todos" and 'Vendedor' in df_prev.columns: df_prev = df_prev[df_prev['Vendedor'] == vendedor]
+        if producto != "Todos" and 'Producto' in df_prev.columns: df_prev = df_prev[df_prev['Producto'] == producto]
+        
         status_col = find_col(df, ['Status'])
         df_ventas = df[df[status_col].isin(STATUS_VENTAS)] if status_col else df
         df_cotiz = df[df[status_col].isin(STATUS_COTIZACIONES)] if status_col else pd.DataFrame()
+        df_ventas_prev = df_prev[df_prev[status_col].isin(STATUS_VENTAS)] if status_col and not df_prev.empty else pd.DataFrame()
         
         st.markdown('<div class="sidebar-section">📈 TENDENCIA</div>', unsafe_allow_html=True)
         total_col = find_col(df_ventas, ['Total'])
         if fecha_col and total_col and not df_ventas.empty:
-            df_ventas[fecha_col] = pd.to_datetime(df_ventas[fecha_col], errors='coerce')
-            daily = df_ventas.groupby(df_ventas[fecha_col].dt.date)[total_col].sum().tail(7)
+            df_ventas_copy = df_ventas.copy()
+            df_ventas_copy[fecha_col] = pd.to_datetime(df_ventas_copy[fecha_col], errors='coerce')
+            daily = df_ventas_copy.groupby(df_ventas_copy[fecha_col].dt.date)[total_col].sum().tail(7)
             if len(daily) > 1:
                 st.plotly_chart(chart_sparkline(daily.values.tolist()), use_container_width=True, config={'displayModeBar': False})
         
@@ -1012,11 +1090,12 @@ def main():
             <div class="sidebar-footer-brand">SINAPSIS</div>
         </div>''', unsafe_allow_html=True)
     
-    # ========== MÉTRICAS ==========
+    # ========== CALCULAR MÉTRICAS CON DELTAS REALES ==========
     total_col = find_col(df_ventas, ['Total'])
     cant_col = find_col(df_ventas, ['Cantidad'])
     monto_col = find_col(gastos, ['Monto'])
     
+    # Métricas actuales
     total_ventas = df_ventas[total_col].sum() if total_col else 0
     total_botellas = int(df_ventas[cant_col].sum()) if cant_col else 0
     n_trans = len(df_ventas)
@@ -1026,6 +1105,22 @@ def main():
     margen = (utilidad / total_ventas * 100) if total_ventas > 0 else 0
     n_cotiz = len(df_cotiz)
     conversion = (n_trans / (n_trans + n_cotiz) * 100) if (n_trans + n_cotiz) > 0 else 0
+    
+    # Métricas periodo anterior para deltas reales
+    total_ventas_prev = df_ventas_prev[total_col].sum() if total_col and not df_ventas_prev.empty else 0
+    total_botellas_prev = int(df_ventas_prev[cant_col].sum()) if cant_col and not df_ventas_prev.empty else 0
+    n_trans_prev = len(df_ventas_prev)
+    ticket_prom_prev = total_ventas_prev / n_trans_prev if n_trans_prev > 0 else 0
+    utilidad_prev = total_ventas_prev - total_gastos  # Simplificado
+    margen_prev = (utilidad_prev / total_ventas_prev * 100) if total_ventas_prev > 0 else 0
+    
+    # Calcular deltas
+    delta_ventas = calc_delta(total_ventas, total_ventas_prev)
+    delta_botellas = calc_delta(total_botellas, total_botellas_prev)
+    delta_ticket = calc_delta(ticket_prom, ticket_prom_prev)
+    delta_utilidad = calc_delta(utilidad, utilidad_prev)
+    delta_margen = margen - margen_prev  # Diferencia absoluta en puntos
+    delta_conversion = 0  # Requiere datos de cotizaciones previas
     
     # ========== HEADER ==========
     st.markdown(f'''<div class="main-header">
@@ -1041,18 +1136,18 @@ def main():
     
     # ==================== TAB 1: OVERVIEW ====================
     with tab1:
-        # KPIs
+        # KPIs con deltas reales
         cols = st.columns(6)
-        with cols[0]: st.markdown(html_kpi("Ventas Totales", total_ventas, delta=12.5, accent=True, large=True), unsafe_allow_html=True)
-        with cols[1]: st.markdown(html_kpi("Utilidad Bruta", utilidad, delta=15.2), unsafe_allow_html=True)
-        with cols[2]: st.markdown(html_kpi("Margen", margen, prefix="", suffix="%", delta=2.1), unsafe_allow_html=True)
-        with cols[3]: st.markdown(html_kpi("Botellas", total_botellas, prefix="", delta=8), unsafe_allow_html=True)
-        with cols[4]: st.markdown(html_kpi("Ticket Prom.", ticket_prom, delta=5.3), unsafe_allow_html=True)
-        with cols[5]: st.markdown(html_kpi("Conversión", conversion, prefix="", suffix="%", delta=-2 if conversion < 80 else 3), unsafe_allow_html=True)
+        with cols[0]: st.markdown(html_kpi("Ventas Totales", total_ventas, delta=delta_ventas, accent=True, large=True), unsafe_allow_html=True)
+        with cols[1]: st.markdown(html_kpi("Utilidad Bruta", utilidad, delta=delta_utilidad), unsafe_allow_html=True)
+        with cols[2]: st.markdown(html_kpi("Margen", margen, prefix="", suffix="%", delta=delta_margen, delta_label="pts"), unsafe_allow_html=True)
+        with cols[3]: st.markdown(html_kpi("Botellas", total_botellas, prefix="", delta=delta_botellas), unsafe_allow_html=True)
+        with cols[4]: st.markdown(html_kpi("Ticket Prom.", ticket_prom, delta=delta_ticket), unsafe_allow_html=True)
+        with cols[5]: st.markdown(html_kpi("Conversión", conversion, prefix="", suffix="%", delta=delta_conversion), unsafe_allow_html=True)
         
         st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
         
-        # Row 2
+        # Row 2: Gráficos principales
         c1, c2, c3 = st.columns([2, 1, 1])
         with c1:
             st.markdown('<div class="card"><div class="card-title">📈 VENTAS VS META POR MES</div>', unsafe_allow_html=True)
@@ -1075,15 +1170,28 @@ def main():
         
         st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
         
-        # Row 3
-        c1, c2, c3 = st.columns(3)
+        # Row 3: Gráficos avanzados
+        c1, c2 = st.columns(2)
         with c1:
-            st.markdown('<div class="card"><div class="card-title">🏆 VENTAS POR PRODUCTO</div>', unsafe_allow_html=True)
+            st.markdown('<div class="card"><div class="card-title">🗺️ TREEMAP DE PRODUCTOS</div>', unsafe_allow_html=True)
             prod_col = find_col(df_ventas, ['Producto'])
-            if prod_col and total_col and cant_col:
-                prod_data = df_ventas.groupby(prod_col).agg({total_col: 'sum', cant_col: 'sum'}).sort_values(total_col, ascending=False).head(5)
-                table_data = [{'producto': p, 'unidades': int(r[cant_col]), 'ventas': r[total_col]} for p, r in prod_data.iterrows()]
-                st.markdown(html_table_productos(table_data, [{'key': 'producto', 'label': 'Producto'}, {'key': 'unidades', 'label': 'Unid.', 'align': 'center'}, {'key': 'ventas', 'label': 'Ventas', 'prefix': '$', 'align': 'right', 'highlight': True}]), unsafe_allow_html=True)
+            fig_tree = chart_treemap(df_ventas, prod_col, total_col)
+            if fig_tree: st.plotly_chart(fig_tree, use_container_width=True, config={'displayModeBar': False})
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown('<div class="card"><div class="card-title">🔥 HEATMAP VENTAS POR DÍA</div>', unsafe_allow_html=True)
+            fig_heat = chart_heatmap(df_ventas, fecha_col, total_col)
+            if fig_heat: st.plotly_chart(fig_heat, use_container_width=True, config={'displayModeBar': False})
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+        
+        # Row 4: Área tendencia + Pipeline
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            st.markdown('<div class="card"><div class="card-title">📈 TENDENCIA ACUMULADA</div>', unsafe_allow_html=True)
+            fig_area = chart_area_tendencia(df_ventas, fecha_col, total_col)
+            if fig_area: st.plotly_chart(fig_area, use_container_width=True, config={'displayModeBar': False})
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
             st.markdown('<div class="card"><div class="card-title">🎯 PIPELINE DE VENTAS</div>', unsafe_allow_html=True)
@@ -1092,20 +1200,10 @@ def main():
                 funnel_data = [{'etapa': s, 'count': len(ventas[ventas[status_col] == s])} for s in pipeline]
                 st.markdown(html_funnel(funnel_data), unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
-        with c3:
-            st.markdown('<div class="card"><div class="card-title">📦 ESTADO DE INVENTARIO</div>', unsafe_allow_html=True)
-            if not inventario.empty:
-                prod_inv = find_col(inventario, ['Producto'])
-                stock_col_inv = find_col(inventario, ['Stock Actual'])
-                min_col = find_col(inventario, ['Stock Mínimo'])
-                if prod_inv and stock_col_inv:
-                    inv_data = [{'producto': r[prod_inv], 'stock': r[stock_col_inv], 'minimo': r[min_col] if min_col else 10} for _, r in inventario.head(5).iterrows()]
-                    st.markdown(html_inventory(inv_data), unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
         
-        # Row 4
+        # Row 5: Vendedores + Inventario
         c1, c2 = st.columns(2)
         with c1:
             st.markdown('<div class="card"><div class="card-title">🗺️ VENTAS POR VENDEDOR</div>', unsafe_allow_html=True)
@@ -1117,34 +1215,53 @@ def main():
                     st.markdown(html_legend([{'name': k, 'pct': (v/total_v)*100} for k, v in vend_data.items()], [C['accent'], C['blue'], C['purple'], C['amber'], C['red']]), unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
         with c2:
-            st.markdown('<div class="card"><div class="card-title">📊 MÉTRICAS ADICIONALES</div>', unsafe_allow_html=True)
-            kc1, kc2 = st.columns(2)
-            with kc1:
-                st.markdown(html_kpi("Gastos Op.", total_gastos, delta=-5, delta_label="↓ Ahorro"), unsafe_allow_html=True)
-                st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-                st.markdown(html_kpi("Cotizaciones", n_cotiz, prefix="", delta=-10), unsafe_allow_html=True)
-            with kc2:
-                st.markdown(html_kpi("Utilidad Neta", utilidad * 0.7, delta=18, accent=True), unsafe_allow_html=True)
-                st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-                margen_neto = (utilidad * 0.7 / total_ventas * 100) if total_ventas > 0 else 0
-                st.markdown(html_kpi("Margen Neto", margen_neto, prefix="", suffix="%", delta=3.2), unsafe_allow_html=True)
+            st.markdown('<div class="card"><div class="card-title">📦 ESTADO DE INVENTARIO</div>', unsafe_allow_html=True)
+            if not inventario.empty:
+                prod_inv = find_col(inventario, ['Producto'])
+                stock_col_inv = find_col(inventario, ['Stock Actual'])
+                min_col = find_col(inventario, ['Stock Mínimo'])
+                if prod_inv and stock_col_inv:
+                    inv_data = [{'producto': r[prod_inv], 'stock': r[stock_col_inv], 'minimo': r[min_col] if min_col else 10} for _, r in inventario.head(6).iterrows()]
+                    st.markdown(html_inventory(inv_data), unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
     
     # ==================== TAB 2: VENTAS ====================
     with tab2:
+        # Controles: Búsqueda + Ordenamiento + Exportar
+        c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+        with c1:
+            search_ventas = st.text_input("🔍 Buscar", placeholder="Cliente, producto, folio...", key="search_ventas")
+        with c2:
+            sort_options = ["Fecha", "Total", "Cliente", "Producto"]
+            sort_by = st.selectbox("Ordenar por", sort_options, key="sort_ventas")
+        with c3:
+            sort_order = st.selectbox("Orden", ["Descendente", "Ascendente"], key="order_ventas")
+        with c4:
+            st.markdown("<div style='height:27px;'></div>", unsafe_allow_html=True)
+            excel_data = to_excel(df_ventas)
+            st.download_button("📥 Excel", excel_data, "ventas_yukusavi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+        
+        # Aplicar filtros
+        df_display = df_ventas.copy()
+        if search_ventas:
+            df_display = search_dataframe(df_display, search_ventas, ['Folio', 'Cliente', 'Producto', 'Canal'])
+        
+        sort_col_map = {"Fecha": fecha_col, "Total": total_col, "Cliente": "Cliente", "Producto": "Producto"}
+        if sort_by in sort_col_map and sort_col_map[sort_by]:
+            df_display = sort_dataframe(df_display, sort_col_map[sort_by], ascending=(sort_order == "Ascendente"))
+        
         st.markdown(f'''<div class="stats-row">
-            <div class="stat-chip"><span class="stat-chip-value">{len(df_ventas)}</span><span class="stat-chip-label">Transacciones</span></div>
-            <div class="stat-chip"><span class="stat-chip-value">${total_ventas:,.0f}</span><span class="stat-chip-label">Total Ventas</span></div>
-            <div class="stat-chip"><span class="stat-chip-value">{total_botellas}</span><span class="stat-chip-label">Botellas</span></div>
-            <div class="stat-chip"><span class="stat-chip-value">${ticket_prom:,.0f}</span><span class="stat-chip-label">Ticket Promedio</span></div>
+            <div class="stat-chip"><span class="stat-chip-value">{len(df_display)}</span><span class="stat-chip-label">Resultados</span></div>
+            <div class="stat-chip"><span class="stat-chip-value">${df_display[total_col].sum() if total_col else 0:,.0f}</span><span class="stat-chip-label">Total</span></div>
+            <div class="stat-chip"><span class="stat-chip-value">{int(df_display[cant_col].sum()) if cant_col else 0}</span><span class="stat-chip-label">Botellas</span></div>
         </div>''', unsafe_allow_html=True)
         
         st.markdown('<div class="card"><div class="card-title">📋 DETALLE DE VENTAS</div>', unsafe_allow_html=True)
-        st.markdown(html_table_ventas(df_ventas.head(50), fecha_col, total_col, cant_col, status_col), unsafe_allow_html=True)
+        st.markdown(html_table_ventas(df_display.head(100), fecha_col, total_col, cant_col, status_col, search_ventas), unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        if len(df_ventas) > 50:
-            st.info(f"Mostrando 50 de {len(df_ventas)} registros. Usa los filtros para refinar.")
+        if len(df_display) > 100:
+            st.info(f"Mostrando 100 de {len(df_display)} registros.")
     
     # ==================== TAB 3: INVENTARIO ====================
     with tab3:
@@ -1154,14 +1271,20 @@ def main():
             min_col = find_col(inventario, ['Stock Mínimo'])
             precio_col = find_col(inventario, ['Precio Venta'])
             
+            # Export button
+            c1, c2 = st.columns([4, 1])
+            with c2:
+                excel_inv = to_excel(inventario)
+                st.download_button("📥 Excel", excel_inv, "inventario_yukusavi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            
             total_stock = int(inventario[stock_col_inv].sum()) if stock_col_inv else 0
             valor_inv = (inventario[stock_col_inv] * inventario[precio_col]).sum() if stock_col_inv and precio_col else 0
             productos_bajo = len(inventario[inventario[stock_col_inv] <= inventario[min_col]]) if stock_col_inv and min_col else 0
             
             st.markdown(f'''<div class="stats-row">
                 <div class="stat-chip"><span class="stat-chip-value">{len(inventario)}</span><span class="stat-chip-label">Productos</span></div>
-                <div class="stat-chip"><span class="stat-chip-value">{total_stock}</span><span class="stat-chip-label">Unidades Totales</span></div>
-                <div class="stat-chip"><span class="stat-chip-value">${valor_inv:,.0f}</span><span class="stat-chip-label">Valor Inventario</span></div>
+                <div class="stat-chip"><span class="stat-chip-value">{total_stock}</span><span class="stat-chip-label">Unidades</span></div>
+                <div class="stat-chip"><span class="stat-chip-value">${valor_inv:,.0f}</span><span class="stat-chip-label">Valor</span></div>
                 <div class="stat-chip"><span class="stat-chip-value" style="color: {C['red'] if productos_bajo > 0 else C['green']};">{productos_bajo}</span><span class="stat-chip-label">Stock Bajo</span></div>
             </div>''', unsafe_allow_html=True)
             
@@ -1196,14 +1319,34 @@ def main():
             cat_col = find_col(gastos, ['Categoría', 'Categoria'])
             monto_col_g = find_col(gastos, ['Monto'])
             
-            total_gastos_tab = gastos[monto_col_g].sum() if monto_col_g else 0
-            n_gastos = len(gastos)
+            # Controles
+            c1, c2, c3 = st.columns([2, 1, 1])
+            with c1:
+                search_gastos = st.text_input("🔍 Buscar", placeholder="Categoría, concepto, proveedor...", key="search_gastos")
+            with c2:
+                sort_gastos = st.selectbox("Ordenar por", ["Fecha", "Monto", "Categoría"], key="sort_gastos")
+            with c3:
+                st.markdown("<div style='height:27px;'></div>", unsafe_allow_html=True)
+                excel_gastos = to_excel(gastos)
+                st.download_button("📥 Excel", excel_gastos, "gastos_yukusavi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            
+            # Aplicar filtros
+            df_gastos_display = gastos.copy()
+            if search_gastos:
+                df_gastos_display = search_dataframe(df_gastos_display, search_gastos, [cat_col or '', 'Concepto', 'Descripción', 'Proveedor'])
+            
+            sort_g_map = {"Fecha": fecha_gasto_col, "Monto": monto_col_g, "Categoría": cat_col}
+            if sort_gastos in sort_g_map and sort_g_map[sort_gastos]:
+                df_gastos_display = sort_dataframe(df_gastos_display, sort_g_map[sort_gastos], ascending=False)
+            
+            total_gastos_tab = df_gastos_display[monto_col_g].sum() if monto_col_g else 0
+            n_gastos = len(df_gastos_display)
             gasto_prom = total_gastos_tab / n_gastos if n_gastos > 0 else 0
-            n_categorias = gastos[cat_col].nunique() if cat_col else 0
+            n_categorias = df_gastos_display[cat_col].nunique() if cat_col else 0
             
             st.markdown(f'''<div class="stats-row">
                 <div class="stat-chip"><span class="stat-chip-value">{n_gastos}</span><span class="stat-chip-label">Registros</span></div>
-                <div class="stat-chip"><span class="stat-chip-value">${total_gastos_tab:,.0f}</span><span class="stat-chip-label">Total Gastos</span></div>
+                <div class="stat-chip"><span class="stat-chip-value">${total_gastos_tab:,.0f}</span><span class="stat-chip-label">Total</span></div>
                 <div class="stat-chip"><span class="stat-chip-value">${gasto_prom:,.0f}</span><span class="stat-chip-label">Promedio</span></div>
                 <div class="stat-chip"><span class="stat-chip-value">{n_categorias}</span><span class="stat-chip-label">Categorías</span></div>
             </div>''', unsafe_allow_html=True)
@@ -1211,21 +1354,22 @@ def main():
             c1, c2 = st.columns([1, 1])
             with c1:
                 st.markdown('<div class="card"><div class="card-title">📊 GASTOS POR CATEGORÍA</div>', unsafe_allow_html=True)
-                fig_gastos = chart_gastos_categoria(gastos, cat_col, monto_col_g)
+                fig_gastos = chart_gastos_categoria(df_gastos_display, cat_col, monto_col_g)
                 if fig_gastos:
                     st.plotly_chart(fig_gastos, use_container_width=True, config={'displayModeBar': False})
                 st.markdown('</div>', unsafe_allow_html=True)
             with c2:
                 st.markdown('<div class="card"><div class="card-title">🥧 DISTRIBUCIÓN</div>', unsafe_allow_html=True)
                 if cat_col and monto_col_g:
-                    cat_data = gastos.groupby(cat_col)[monto_col_g].sum().sort_values(ascending=False)
+                    cat_data = df_gastos_display.groupby(cat_col)[monto_col_g].sum().sort_values(ascending=False)
                     total_cat = cat_data.sum()
-                    st.plotly_chart(chart_donut(cat_data.index.tolist(), cat_data.values.tolist(), f"${total_cat/1000:.0f}k"), use_container_width=True, config={'displayModeBar': False})
-                    st.markdown(html_legend([{'name': k, 'pct': (v/total_cat)*100} for k, v in cat_data.items()], [C['accent'], C['blue'], C['purple'], C['amber'], C['red']]), unsafe_allow_html=True)
+                    if total_cat > 0:
+                        st.plotly_chart(chart_donut(cat_data.index.tolist(), cat_data.values.tolist(), f"${total_cat/1000:.0f}k"), use_container_width=True, config={'displayModeBar': False})
+                        st.markdown(html_legend([{'name': k, 'pct': (v/total_cat)*100} for k, v in cat_data.items()], [C['accent'], C['blue'], C['purple'], C['amber'], C['red']]), unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown('<div class="card"><div class="card-title">📋 DETALLE DE GASTOS</div>', unsafe_allow_html=True)
-            st.markdown(html_table_gastos(gastos.head(30), fecha_gasto_col, cat_col, monto_col_g), unsafe_allow_html=True)
+            st.markdown(html_table_gastos(df_gastos_display.head(50), fecha_gasto_col, cat_col, monto_col_g, search_gastos), unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.warning("No hay datos de gastos")
