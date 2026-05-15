@@ -16,9 +16,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-SHEET_ID = "169pU5z_xFWBACaXBkTogQzgV15L9cxJZ9kZXvr7dXG8"
-STATUS_VENTAS = ['Entregado', 'Pagado', 'Apartado']
-STATUS_COTIZACIONES = ['Cotizado']
+SHEET_ID = "1dym-rw-s7nTn32PcD-hnFT1CECzzCsoAG3vJJ6DK8k0"
+STATUS_VENTAS = ['ENTREGADO / PAGADO', 'ENTREGADO', 'PAGADO', 'Entregado', 'Pagado', 'Apartado']
+STATUS_COTIZACIONES = ['COTIZADO', 'Cotizado', 'PENDIENTE', 'Pendiente']
 META_MENSUAL = 300000
 
 # Paleta Power BI
@@ -332,6 +332,8 @@ section[data-testid="stSidebar"] > div:first-child {{
 .status-badge.pagado {{ background: rgba(77,171,247,0.15); color: var(--blue); }}
 .status-badge.apartado {{ background: rgba(151,117,250,0.15); color: var(--purple); }}
 .status-badge.cotizado {{ background: rgba(255,193,7,0.15); color: var(--amber); }}
+.status-badge.entregado\/pagado {{ background: rgba(0,212,170,0.15); color: var(--green); }}
+.status-badge.pendiente {{ background: rgba(255,193,7,0.15); color: var(--amber); }}
 
 /* Funnel */
 .funnel-item {{
@@ -871,7 +873,21 @@ def html_table_ventas(df, fecha_col, total_col, cant_col, status_col, search_que
             if sq in cliente.lower(): cliente = f'<span class="search-highlight">{cliente}</span>'
             if sq in producto.lower(): producto = f'<span class="search-highlight">{producto}</span>'
         
-        status_cls = status.lower().replace(' ', '') if isinstance(status, str) else ''
+        # Determinar clase de status
+        if isinstance(status, str):
+            status_lower = status.lower()
+            if 'entregado' in status_lower:
+                status_cls = 'entregado'
+            elif 'pagado' in status_lower:
+                status_cls = 'pagado'
+            elif 'pendiente' in status_lower or 'cotizado' in status_lower:
+                status_cls = 'cotizado'
+            elif 'apartado' in status_lower:
+                status_cls = 'apartado'
+            else:
+                status_cls = ''
+        else:
+            status_cls = ''
         
         rows += f'''<tr>
             <td>{folio}</td>
