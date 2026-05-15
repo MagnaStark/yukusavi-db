@@ -734,18 +734,34 @@ def chart_heatmap(df, fecha_col, total_col):
     df_temp = df.copy()
     df_temp['_fecha'] = pd.to_datetime(df_temp[fecha_col], errors='coerce')
     df_temp['_total'] = pd.to_numeric(df_temp[total_col], errors='coerce').fillna(0)
+    df_temp = df_temp.dropna(subset=['_fecha'])
+    
+    if df_temp.empty:
+        return None
+    
     df_temp['dia_semana'] = df_temp['_fecha'].dt.dayofweek
     df_temp['semana'] = df_temp['_fecha'].dt.isocalendar().week
     
     pivot = df_temp.groupby(['dia_semana', 'semana'])['_total'].sum().reset_index()
     pivot_table = pivot.pivot(index='dia_semana', columns='semana', values='_total').fillna(0)
     
+    if pivot_table.empty:
+        return None
+    
     dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    
+    # Validar que los índices estén en rango
+    y_labels = []
+    for i in pivot_table.index:
+        if 0 <= i < len(dias):
+            y_labels.append(dias[i])
+        else:
+            y_labels.append(f'Día {i}')
     
     fig = go.Figure(go.Heatmap(
         z=pivot_table.values,
         x=[f'S{int(c)}' for c in pivot_table.columns],
-        y=[dias[i] for i in pivot_table.index],
+        y=y_labels,
         colorscale=[[0, C['bg2']], [0.5, C['blue']], [1, C['accent']]],
         hovertemplate='%{y}, Semana %{x}<br>$%{z:,.0f}<extra></extra>',
         showscale=False
